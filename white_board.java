@@ -4,22 +4,32 @@ import java.awt.*;
 import java.awt.event.MouseAdapter;
 import java.io.*;
 import java.net.Socket;
-import java.rmi.UnknownHostException;
 import java.util.ArrayList;
 import java.awt.event.MouseEvent;
 import java.awt.event.MouseMotionAdapter;
+import java.util.Timer;
+import java.util.TimerTask;
 
 
 import javax.swing.*;
 
+import Test.lectureEnded;
 import online_learning_system.menu.status;
 
 
 public class white_board extends JPanel implements Runnable {
     // constructor with port
-    private Socket socket = new Socket("localHost", 5001);
-    private DataInputStream input = null;
-    private DataOutputStream out = null;
+    private final Socket socket = new Socket("", 5001);
+    private final DataInputStream input = null;
+    private final DataOutputStream out = null;
+
+    static int interval;
+    static Timer timer;
+    static JLabel time = new JLabel("Time Left: 00:00:00");
+    static JLabel counter = new JLabel("            Lines: 0   Circles: 0   Rectangles: 0   Pen Usage: 0");
+    static JPanel timerPanel = new JPanel(new GridLayout(2, 1));
+
+    int penUsage = 0;
 
 
     private final ArrayList<Point> line_coordinates = new ArrayList<>();
@@ -50,7 +60,44 @@ public class white_board extends JPanel implements Runnable {
     public ArrayList<String> outputToSend = new ArrayList<>();
 
     public white_board() throws IOException {
+
         menu g = new menu();
+        time.setFont(new Font(time.getName(), Font.PLAIN, 40));
+        time.setHorizontalTextPosition(JLabel.CENTER);
+        counter.setHorizontalTextPosition(JLabel.CENTER);
+        timerPanel.add(time);
+        timerPanel.add(counter);
+        GridBagConstraints constraints2 = new GridBagConstraints();
+        constraints2.gridx = 10;
+        constraints2.gridy = 0;
+        this.add(timerPanel, BorderLayout.NORTH);
+        Thread t = new Thread() {
+            @Override
+            public void run() {
+                int secs = 3610;
+                int delay = 1000;
+                int period = 1000;
+
+                timer = new Timer();
+                interval = secs;
+                timer.scheduleAtFixedRate(new TimerTask() {
+
+                    public void run() {
+                        int interval = setInterval();
+                        int hoursToDisplay = interval / 3600;
+                        int minutesToDisplay = (interval % 3600) / 60;
+                        int secsToDisplay = interval % 60;
+                        String timeString = "";
+                        timeString = String.format("%02d:%02d:%02d", hoursToDisplay, minutesToDisplay, secsToDisplay);
+                        time.setText("Time Left: " + timeString);
+                        counter.setText("            Lines: " + line_coordinates.size() + "   Circles: " + circle_coordinates.size()
+                                + "   Rectangles: " + rectangle_coordinates.size() + "   Pen Usage: " + penUsage);
+                    }
+                }, delay, period);
+            }
+        };
+        sendStart();
+        t.start();
         addMouseListener(
                 new MouseAdapter() {
                     public void mousePressed(MouseEvent event) {
@@ -63,8 +110,8 @@ public class white_board extends JPanel implements Runnable {
                             line_start.add(begin);
                             outputToSend.removeAll(outputToSend);
                             outputToSend.add("DrawLine");
-                            outputToSend.add(""+beginX_Line);
-                            outputToSend.add(""+beginY_Line);
+                            outputToSend.add("" + beginX_Line);
+                            outputToSend.add("" + beginY_Line);
                             repaint();
                         }
 
@@ -77,8 +124,8 @@ public class white_board extends JPanel implements Runnable {
                             circle_start.add(begin);
                             outputToSend.removeAll(outputToSend);
                             outputToSend.add("DrawCircle");
-                            outputToSend.add(""+beginX_Circle);
-                            outputToSend.add(""+beginY_Circle);
+                            outputToSend.add("" + beginX_Circle);
+                            outputToSend.add("" + beginY_Circle);
                             repaint();
                         }
 
@@ -91,8 +138,8 @@ public class white_board extends JPanel implements Runnable {
                             rectangle_start.add(begin);
                             outputToSend.removeAll(outputToSend);
                             outputToSend.add("DrawRectangle");
-                            outputToSend.add(""+beginX_Rectangle);
-                            outputToSend.add(""+beginY_Rectangle);
+                            outputToSend.add("" + beginX_Rectangle);
+                            outputToSend.add("" + beginY_Rectangle);
                             repaint();
                         }
                     }
@@ -105,8 +152,8 @@ public class white_board extends JPanel implements Runnable {
                             end.x = endX_Line;
                             end.y = endY_Line;
                             line_coordinates.add(end);
-                            outputToSend.add(""+endX_Line);
-                            outputToSend.add(""+endY_Line);
+                            outputToSend.add("" + endX_Line);
+                            outputToSend.add("" + endY_Line);
                             try {
                                 this.send(outputToSend);
                             } catch (IOException e) {
@@ -122,8 +169,8 @@ public class white_board extends JPanel implements Runnable {
                             end.x = endX_Circle;
                             end.y = endY_Circle;
                             circle_coordinates.add(end);
-                            outputToSend.add(""+endX_Circle);
-                            outputToSend.add(""+endY_Circle);
+                            outputToSend.add("" + endX_Circle);
+                            outputToSend.add("" + endY_Circle);
                             try {
                                 this.send(outputToSend);
                             } catch (IOException e) {
@@ -139,8 +186,8 @@ public class white_board extends JPanel implements Runnable {
                             end.x = endX_Rectangle;
                             end.y = endY_Rectangle;
                             rectangle_coordinates.add(end);
-                            outputToSend.add(""+endX_Rectangle);
-                            outputToSend.add(""+endY_Rectangle);
+                            outputToSend.add("" + endX_Rectangle);
+                            outputToSend.add("" + endY_Rectangle);
                             try {
                                 this.send(outputToSend);
                             } catch (IOException e) {
@@ -148,13 +195,15 @@ public class white_board extends JPanel implements Runnable {
                             }
                             repaint();
                         }
+                        if (g.getdraw_status() == status.circlePen || g.getdraw_status() == status.squarePen) {
+                            penUsage++;
+                        }
                     }
 
                     public void send(ArrayList<String> outputToSend) throws IOException {
-                            System.out.println("Connected");
-                            OutputStream outputStream = socket.getOutputStream();
-                            ObjectOutputStream objectOutputStream = new ObjectOutputStream(outputStream);
-                            objectOutputStream.writeObject(outputToSend);
+                        OutputStream outputStream = socket.getOutputStream();
+                        ObjectOutputStream objectOutputStream = new ObjectOutputStream(outputStream);
+                        objectOutputStream.writeObject(outputToSend);
 
                         return;
 
@@ -183,12 +232,11 @@ public class white_board extends JPanel implements Runnable {
                             repaint();
                         }
 
-                        if(g.getdraw_status() == status.circlePen)
-                        {
+                        if (g.getdraw_status() == status.circlePen) {
                             outputToSend.add("CirclePen");
                             circle_Pen.add(e.getPoint());
-                            outputToSend.add(""+ e.getX());
-                            outputToSend.add(""+e.getY());
+                            outputToSend.add("" + e.getX());
+                            outputToSend.add("" + e.getY());
                             try {
                                 this.send(outputToSend);
                             } catch (IOException i) {
@@ -198,42 +246,23 @@ public class white_board extends JPanel implements Runnable {
                             repaint();
                         }
 
-                        if(g.getdraw_status() == status.squarePen)
-                        {
+                        if (g.getdraw_status() == status.squarePen) {
                             outputToSend.add("SquarePen");
                             square_Pen.add(e.getPoint());
-                            outputToSend.add(""+ e.getX());
-                            outputToSend.add(""+e.getY());
+                            outputToSend.add("" + e.getX());
+                            outputToSend.add("" + e.getY());
                             try {
                                 this.send(outputToSend);
                             } catch (IOException i) {
                                 i.printStackTrace();
                             }
                             outputToSend.removeAll(outputToSend);
+                            // penUsage++;
                             repaint();
                         }
-
-
-                        if(g.getdraw_status() == status.eraserPen)
-                        {
-//                            line_coordinates.removeAll(line_coordinates);
-//                            circle_coordinates.removeAll(circle_coordinates);
-//                            rectangle_coordinates.removeAll(rectangle_coordinates);
-//                            line_start.removeAll(line_start);
-//                            circle_start.removeAll(line_start);
-//                            rectangle_start.removeAll(rectangle_start);
-//
-//                            circle_Pen.removeAll(circle_Pen);
-//                            square_Pen.removeAll(square_Pen);
-//                            repaint();
-                            //eraser();
-                            repaint();
-                        }
-
                     }
 
                     public void send(ArrayList<String> outputToSend) throws IOException {
-                        System.out.println("Connected");
                         OutputStream outputStream = socket.getOutputStream();
                         ObjectOutputStream objectOutputStream = new ObjectOutputStream(outputStream);
                         objectOutputStream.writeObject(outputToSend);
@@ -298,18 +327,30 @@ public class white_board extends JPanel implements Runnable {
                 g.drawRect(rectangle_start.get(i).x, rectangle_start.get(i).y, rectangle_coordinates.get(i).x - rectangle_start.get(i).x, rectangle_coordinates.get(i).y - rectangle_start.get(i).y);
         }
 
-        for(Point point : circle_Pen)
-        {
+        for (Point point : circle_Pen) {
             g.fillOval(point.x, point.y, 100, 100);
         }
-        for(Point point : square_Pen)
-        {
+        for (Point point : square_Pen) {
             g.fillRect(point.x, point.y, 100, 100);
         }
 
         //System.out.println(outputToSend);
     }
 
+    public void sendStart() throws IOException {
+        OutputStream outstream = socket.getOutputStream();
+        PrintWriter out = new PrintWriter(outstream);
+        String toSend = "Run Thread 2";
+        out.print(toSend);
+    }
+
+    private static final int setInterval() {
+        if (interval == 1) {
+            lectureEnded Le = new lectureEnded();
+            timer.cancel();
+        }
+        return --interval;
+    }
 
     @Override
     public void run() {

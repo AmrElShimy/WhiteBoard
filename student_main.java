@@ -1,31 +1,16 @@
 package online_learning_system;
 
-import java.awt.BorderLayout;
-import java.io.BufferedInputStream;
-import java.io.DataInputStream;
-import java.io.DataOutputStream;
+import java.awt.*;
 import java.io.IOException;
-import java.net.ServerSocket;
-import java.net.Socket;
-import java.rmi.UnknownHostException;
-
-import javax.swing.JFrame;
-import java.awt.BorderLayout;
-import java.awt.Dimension;
-import java.awt.GridBagConstraints;
-import java.awt.GridBagLayout;
-import java.util.TreeMap;
-
+import javax.swing.*;
 
 public class student_main {
-    // initialize socket and input output streams
-
-
 
 
     public static void main(String[] args) throws IOException, ClassNotFoundException {
         JFrame Application = new JFrame();
         Application.setLayout(new GridBagLayout());
+
         GridBagConstraints constraints = new GridBagConstraints();
         constraints.fill = GridBagConstraints.BOTH;
 
@@ -43,15 +28,20 @@ public class student_main {
         ++constraints.gridy;
         Application.add(chatbox, constraints);
 
-        Application.setSize(1300,1300);
+
+        Application.setSize(1300, 1300);
         Application.setVisible(true);
         Application.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
 
-//        Thread chatThread = new Thread(chatbox);
-//        Thread board = new Thread(p);
-//        chatbox.connect();
+
+        Thread t = new Thread() {
+            @Override
+            public void run() {
+                chatbox.connect();
+            }
+        };
+        t.start();
         p.receive();
 
     }
-
 }

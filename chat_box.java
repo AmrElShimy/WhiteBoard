@@ -8,11 +8,16 @@ import java.awt.GridLayout;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.io.EOFException;
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.net.SocketException;
+import java.util.Scanner;
 import javax.swing.BorderFactory;
 import javax.swing.JButton;
 import javax.swing.JOptionPane;
@@ -22,19 +27,20 @@ import javax.swing.JTextArea;
 import javax.swing.JTextField;
 import javax.swing.SwingUtilities;
 
-public class chat_box extends JPanel implements Runnable{
+public class chat_box extends JPanel {
     BorderLayout border_layout;
     GridLayout grid_layout;
     JTextArea message_area;
     JTextField message_box;
     JButton send;
+    JButton Attendance;
 
     private ObjectOutputStream oos;
     private ObjectInputStream ois;
     private ServerSocket socket;
     private Socket connection;
-    public chat_box()
-    {
+
+    public chat_box() {
         setLayout(new GridBagLayout());
         GridBagConstraints constraints = new GridBagConstraints();
         constraints.fill = GridBagConstraints.BOTH;
@@ -61,113 +67,145 @@ public class chat_box extends JPanel implements Runnable{
         add(message_box, constraints);
 
         send = new JButton("Send");
-        send.setEnabled(false);
+        setButtonEnabled(false);
         constraints.weightx = 0.05;
         constraints.gridx = 1;
         add(send, constraints);
-        send.addActionListener(new ActionListener()
-        {
+        send.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
                 send(message_box.getText());
                 message_box.setText(" ");
             }
         });
+        Attendance = new JButton("Attendance");
+        constraints.weightx = 0.05;
+        constraints.gridx = 2;
+        add(Attendance, constraints);
+        Attendance.addActionListener(new ActionListener() {
+            String student_name;
+
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                try {
+                    File myObj = new File("ATTENDANCE.txt");
+                    Scanner myReader = new Scanner(myObj);
+                    while (myReader.hasNextLine()) {
+                        student_name = myReader.nextLine();
+                        System.out.println(student_name);
+                    }
+                    myReader.close();
+                } catch (FileNotFoundException event) {
+                    System.out.println("An error occurred.");
+                    event.printStackTrace();
+                }
+                JOptionPane.showMessageDialog(null, student_name, "ATTENDANCE", JOptionPane.INFORMATION_MESSAGE);
+            }
+        });
 
     }
 
 
-
-
-
-
-    public void connect()
-    {
-        try
-        {
-            socket = new ServerSocket(5000,100);
-            while(true)
-            {
-                try
-                {
+    public void connect() {
+        try {
+            socket = new ServerSocket(5000, 100);
+            while (true) {
+                try {
                     connection = socket.accept();
                     add_message("SYSTEM: student connected");
                     send.setEnabled(true);
                     stream();
+
+
+                    try {
+                        String message = " ";
+                        message = (String) ois.readObject();
+                        try {
+                            File myObj = new File("ATTENDANCE.txt");
+                            if (myObj.createNewFile()) {
+                                System.out.println("File created: " + myObj.getName());
+                            }
+                        } catch (IOException e) {
+                            System.out.println("An error occurred.");
+                            e.printStackTrace();
+                        }
+                        try {
+                            FileWriter myWriter = new FileWriter("ATTENDANCE.txt");
+                            myWriter.write(message);
+                            myWriter.close();
+
+                        } catch (IOException e) {
+                            System.out.println("Cannot write to file.");
+                            e.printStackTrace();
+                        }
+
+                    } catch (ClassNotFoundException e) {
+                        add_message("Can't take the attendance");
+                    }
+
+
                     processconnection();
-                }
-                catch(EOFException e)
-                {
+                } catch (EOFException e) {
                     add_message("SYSTEM: No student left");
                     setButtonEnabled(false);
-                }
-                finally
-                {
+                } finally {
                     oos.close();
                     ois.close();
                     connection.close();
                 }
             }
-        }
-        catch(IOException e)
-        {
+        } catch (IOException e) {
             e.printStackTrace();
         }
     }
 
 
-    private void stream() throws IOException
-    {
+    private void stream() throws IOException {
         oos = new ObjectOutputStream(connection.getOutputStream());
         oos.flush();
         ois = new ObjectInputStream(connection.getInputStream());
     }
 
 
-    private void processconnection() throws IOException
-    {
+    private void processconnection() throws IOException {
         setButtonEnabled(true);
         String message = " ";
-        while(true)
-        {
-            try{
+        while (true) {
+            try {
                 message = (String) ois.readObject();
-                if(message.equals("NOTIFICATION"))
-                {
-                    JOptionPane.showMessageDialog(null,"Student Raising Hand","NOTIFICATION",JOptionPane.WARNING_MESSAGE);
-                }
-                else
-                {
+
+                if (message.equals("NOTIFICATION")) {
+                    JOptionPane.showMessageDialog(null, "Student Raising Hand", "NOTIFICATION", JOptionPane.WARNING_MESSAGE);
+                } else {
                     add_message(message);
                 }
-            }
-            catch(ClassNotFoundException e)
-            {
+
+            } catch (ClassNotFoundException e) {
                 e.printStackTrace();
+            } catch (StringIndexOutOfBoundsException e) {
+                e.printStackTrace();
+            } catch (SocketException e) {
+                System.out.println("Connection Lost!");
+                break;
             }
 
         }
     }
 
 
-    private void send(String message)
-    {
-        try
-        {
-            oos.writeObject("Teacher:"+ message);
+    private void send(String message) {
+        try {
+            oos.writeObject("Teacher:" + message);
             oos.flush();
-            add_message("Teacher:"+ message);
-        }
-        catch(IOException e)
-        {
+            add_message("Teacher:" + message);
+        } catch (IOException e) {
             e.printStackTrace();
         }
     }
 
 
     private void add_message(final String message) {
-        SwingUtilities.invokeLater(new Runnable()
-        {
+        SwingUtilities.invokeLater(new Runnable() {
 
             @Override
             public void run() {
@@ -180,10 +218,8 @@ public class chat_box extends JPanel implements Runnable{
     }
 
 
-    public void setButtonEnabled(final boolean state)
-    {
-        SwingUtilities.invokeLater(new Runnable()
-        {
+    public void setButtonEnabled(final boolean state) {
+        SwingUtilities.invokeLater(new Runnable() {
 
             @Override
             public void run() {
@@ -194,8 +230,4 @@ public class chat_box extends JPanel implements Runnable{
         });
     }
 
-    @Override
-    public void run() {
-        chat_box chat = this;
-    }
 }

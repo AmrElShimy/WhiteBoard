@@ -13,10 +13,11 @@ import java.io.ObjectOutputStream;
 import java.net.InetAddress;
 
 import java.net.Socket;
+import java.util.concurrent.TimeUnit;
 
 import javax.swing.BorderFactory;
 import javax.swing.JButton;
-
+import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JTextArea;
@@ -24,7 +25,7 @@ import javax.swing.JTextField;
 import javax.swing.SwingUtilities;
 
 
-public class chat_box_student extends JPanel implements Runnable{
+public class chat_box_student extends JPanel {
 
     JTextArea message_area;
     JTextField message_box;
@@ -34,8 +35,8 @@ public class chat_box_student extends JPanel implements Runnable{
     private ObjectOutputStream oos;
     private ObjectInputStream ois;
     private Socket connection;
-    public chat_box_student(String ip)
-    {
+
+    public chat_box_student(String ip) {
         ip = IP;
         setLayout(new GridBagLayout());
         GridBagConstraints constraints = new GridBagConstraints();
@@ -67,8 +68,7 @@ public class chat_box_student extends JPanel implements Runnable{
         constraints.weightx = 0.05;
         constraints.gridx = 1;
         add(send, constraints);
-        send.addActionListener(new ActionListener()
-        {
+        send.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
                 send(message_box.getText());
@@ -79,8 +79,7 @@ public class chat_box_student extends JPanel implements Runnable{
         constraints.weightx = 0.05;
         constraints.gridx = 2;
         add(raise_hand, constraints);
-        raise_hand.addActionListener(new ActionListener()
-        {
+        raise_hand.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
                 rise_hand_request();
@@ -91,47 +90,39 @@ public class chat_box_student extends JPanel implements Runnable{
     }
 
 
-
     public void connect() //main function of chat box
     {
-        try
-        {
-            try
-            {
-                connection = new Socket(InetAddress.getByName(IP),5000);
+        try {
+            try {
+                connection = new Socket(InetAddress.getByName(IP), 5000);
                 add_message("SYSTEM: you are connected to teacher");
-                setButtonEnabled(true);
                 stream();
+                String student_name = JOptionPane.showInputDialog("Enter your name");
+                send_student_name(student_name);
                 processconnection();
-            }
-            catch(EOFException e)
-            {
+            } catch (EOFException e) {
                 add_message("SYSTEM: Teacher left the season");
                 setButtonEnabled(false);
-            }
-            catch(IOException e)
-            {
+            } catch (IOException e) {
                 add_message("SYSTEM: Teacher is not connected yet!");
-            }
-            finally
-            {
+                try {
+                    Thread.sleep(3000);
+                    connect();
+                } catch (InterruptedException ex) {
+                    Thread.currentThread().interrupt();
+                }
+            } finally {
                 oos.close();
                 ois.close();
                 connection.close();
             }
-        }
-
-        catch(IOException e)
-        {
+        } catch (IOException e) {
             e.printStackTrace();
         }
-
-
     }
 
 
-    private void stream() throws IOException
-    {
+    private void stream() throws IOException {
         oos = new ObjectOutputStream(connection.getOutputStream());
         oos.flush();
         ois = new ObjectInputStream(connection.getInputStream());
@@ -139,18 +130,14 @@ public class chat_box_student extends JPanel implements Runnable{
     }
 
 
-    private void processconnection() throws IOException
-    {
+    private void processconnection() throws IOException {
         setButtonEnabled(true);
         String message = " ";
-        while(true)
-        {
-            try{
+        while (true) {
+            try {
                 message = (String) ois.readObject();
                 add_message(message);
-            }
-            catch(ClassNotFoundException e)
-            {
+            } catch (ClassNotFoundException e) {
                 add_message("SYSTEM: Please check your internet connection");
             }
 
@@ -158,28 +145,23 @@ public class chat_box_student extends JPanel implements Runnable{
     }
 
 
-    private void send(String message)
-    {
-        try
-        {
-            oos.writeObject("Student:"+ message);
+    private void send(String message) {
+        try {
+            oos.writeObject("Student:" + message);
             oos.flush();
-            add_message("Student: "+ message);
-        }
-        catch(IOException e)
-        {
+            add_message("Student: " + message);
+        } catch (IOException e) {
             add_message("please check your internet connection...");
         }
     }
 
 
     private void add_message(final String message) {
-        SwingUtilities.invokeLater(new Runnable()
-        {
+        SwingUtilities.invokeLater(new Runnable() {
 
             @Override
             public void run() {
-                message_area.append("\n"+ message);
+                message_area.append("\n" + message);
 
             }
 
@@ -187,10 +169,8 @@ public class chat_box_student extends JPanel implements Runnable{
 
     }
 
-    public void setButtonEnabled(final boolean state)
-    {
-        SwingUtilities.invokeLater(new Runnable()
-        {
+    public void setButtonEnabled(final boolean state) {
+        SwingUtilities.invokeLater(new Runnable() {
 
             @Override
             public void run() {
@@ -201,22 +181,22 @@ public class chat_box_student extends JPanel implements Runnable{
         });
     }
 
-    private void rise_hand_request()
-    {
-        try
-        {
+    private void rise_hand_request() {
+        try {
             oos.writeObject("NOTIFICATION");
             oos.flush();
-        }
-        catch(IOException e)
-        {
+        } catch (IOException e) {
             add_message("please check your internet connection...");
         }
     }
 
 
-    @Override
-    public void run() {
-        chat_box_student chat = this;
+    private void send_student_name(String student_name) {
+        try {
+            oos.writeObject("ATTENDANCE:" + student_name);
+            oos.flush();
+        } catch (IOException e) {
+            add_message("please check your internet connection...");
+        }
     }
 }
